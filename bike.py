@@ -127,7 +127,7 @@ def findClosedBikeWord(word):
                 bestResult.clear()
                 bestResult.append(bw)
                 break
-            if radioBK > 0.3 and radioW > 0.2:
+            if radioBK > 0.5 and radioW > 0.2:
                 bestResult.append(bw)
         # 为了找到尽可能相近的百度词条，如果A词条是B词条的子串，则去除。例如“有理数”与“有理数加法”，去除“有理数”
         finalResult = []
