@@ -2,10 +2,12 @@ import os
 
 import Utils
 import 组卷网映射到百度词条.bike as bike
+import re
 
 resultPath = "../result/"
 
-words = ["数与式", "点、线、面、体"]
+words = ["数与式", "图象与系数", "点、线、面、体"]
+supplement = ["组"]
 
 
 # 根据百科词语去爬取百科页面
@@ -63,8 +65,9 @@ def getSimilarity(a, b):
 
 def divideKnowledge(knowledge):
     # 如果该知识点处于词库中，则不进行分词
-    if knowledge in words:
-        return [], [knowledge], []
+    for w in words:
+        if knowledge.find(w) != -1:
+            return [], [knowledge], []
 
     # 首先按照并列词划分
     partition = []
@@ -76,7 +79,17 @@ def divideKnowledge(knowledge):
             for d in dh:
                 ji = d.split(u"及")
                 for j in ji:
-                    partition.append(j)
+                    if j.find("（") != -1:
+                        flag = False
+                        for s in supplement:
+                            if j.find("（" + s + "）") != -1:
+                                flag = True
+                                partition.append(j.split("（")[0] + j.split("）")[1])
+                                partition.append(j.split("（")[0] + s + j.split("）")[1])
+                        if flag == False:
+                            partition.append(j.split("（")[0] + j.split("）")[1])
+                    else:
+                        partition.append(j)
 
     # 从划分的短语中划分出主要概念以及子概念
     subjects = []
@@ -142,6 +155,11 @@ def getUnmatchedKnowledgeContent(knowledge):
     partitions = divisionResult[1]  # 子概念
     combinations = divisionResult[2]  # 组合
 
+    # 如果partitions的长度大于2，但是combinations的长度为0，说明没有subjects，则将Knowledge作为唯一combination
+    if len(combinations) == 0 and len(partitions) > 1:
+        combinations = []
+        combinations.append(knowledge)
+
     addedBikeWords = set()  # 已经爬过的百度词条
     # 如果有subjects
     if len(subjects) > 0:
@@ -150,20 +168,39 @@ def getUnmatchedKnowledgeContent(knowledge):
         for partition in partitions:
             flag = False
             for subject in subjects:
-                titleContent = bike.getContentByTitle(subject, partition)
-                if titleContent != "":  # 从subject的百科页面中找到partition的子模块
-                    content += titleContent
-                    flag = True
-                    specificKowledge += subject + ">" + partition + " "
-                    addedBikeWords.add(subject)
+                if bike.isBikeWords(subject):
+                    titleContent = bike.getContentByTitle(subject, partition)
+                    if titleContent != "":  # 从subject的百科页面中找到partition的子模块
+                        content += titleContent
+                        flag = True
+                        specificKowledge += subject + ">" + partition + " "
+                        addedBikeWords.add(subject)
+                else:
+                    candinates = bike.findClosedBikeWord(subject)
+                    for candinate in candinates:
+                        titleContent = bike.getContentByTitle(candinate, partition)
+                        if titleContent != "":  # 从subject的百科页面中找到partition的子模块
+                            content += titleContent
+                            flag = True
+                            specificKowledge += candinate + ">" + partition + " "
+                            addedBikeWords.add(candinate)
             if flag == False:  # 没有子模块，尝试找句子
                 s = ""
                 for subject in subjects:
-                    sentence = bike.getSentence(subject, partition)
-                    if sentence != "":
-                        s += sentence + "\n"
-                        addedBikeWords.add(subject)
-                        specificKowledge += subject + "#" + partition + " "
+                    if bike.isBikeWords(subject):
+                        sentence = bike.getSentence(subject, partition)
+                        if sentence != "":
+                            s += sentence + "\n"
+                            addedBikeWords.add(subject)
+                            specificKowledge += subject + "#" + partition + " "
+                    else:
+                        candinates = bike.findClosedBikeWord(subject)
+                        for candinate in candinates:
+                            sentence = bike.getSentence(candinate, partition)
+                            if sentence != "":
+                                s += sentence + "\n"
+                                addedBikeWords.add(candinate)
+                                specificKowledge += candinate + "#" + partition + " "
                 if s != "":  # 从subject的百科页面中找到有关partition的句子
                     content += s
                 if s == "":  # 没找到句子，尝试找组合
@@ -183,13 +220,42 @@ def getUnmatchedKnowledgeContent(knowledge):
                     content += s
                 if s == "":  # 如果没还找到对应的内容，那就把subject的内容作为该知识点的内容
                     for subject in subjects:
-                        content += getContentOfBikeWord(subject).replace("LemmaSummary\n", "").replace(
-                            "mainContent\n", "") + "\n"
-                        specificKowledge += subject + " "
+                        if subject in addedBikeWords:
+                            continue
+                        if bike.isBikeWords(subject):
+                            s += getContentOfBikeWord(subject).replace("LemmaSummary\n", "").replace(
+                                "mainContent\n", "") + "\n"
+                            specificKowledge += subject + " "
+                        else:
+                            candinates = bike.findClosedBikeWord(subject)
+                            for candinate in candinates:
+                                s += getContentOfBikeWord(candinate).replace("LemmaSummary\n", "").replace(
+                                    "mainContent\n", "") + "\n"
+                                specificKowledge += candinate + " "
+                if s != "":
+                    content += s
         return content, specificKowledge
     else:
         content = ""
         specificKowledge = ""
+        for combination in combinations:
+            if combination in addedBikeWords:
+                continue
+            if bike.isBikeWords(combination):
+                content += getContentOfBikeWord(combination)
+                specificKowledge += combination + " "
+                addedBikeWords.add(combination)
+            else:
+                candinates = bike.findClosedBikeWord(combination)
+                for candinate in candinates:
+                    if candinate in addedBikeWords:
+                        continue
+                    c = getContentOfBikeWord(candinate)
+                    if c != "":
+                        content += c + "\n"
+                        specificKowledge += candinate + " "
+                        addedBikeWords.add(candinate)
+
         for partition in partitions:
             if partition in addedBikeWords:
                 continue
@@ -255,8 +321,8 @@ def clearEmptyFile(path):
             os.remove(os.path.join('%s%s' % (path, filename)))
 
 
-getUnmatchedContent()
-# print(getUnmatchedKnowledgeContent("幂的乘方与积的乘方"))
+# getUnmatchedContent()
+print(getUnmatchedKnowledgeContent("运用有理数的运算解决简单问题"))
 # print(getContentOfBikeWord("样本"))
 # print(divideKnowledge("总体、个体、样本、样本容量"))
 # "../unMatchedKnowledgeContent/"
