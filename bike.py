@@ -62,6 +62,7 @@ def MainContentBegin(soup):
     return catalog
 
 
+# 传入百科页面源码和该词条
 def parseMainContent(html, title):
     soup = BeautifulSoup(html, "lxml")
     catalog = MainContentBegin(soup)
@@ -87,6 +88,7 @@ def parseMainContent(html, title):
     return content, tag
 
 
+# 传入词条和关键词
 def getContentByTitle(bikeWord, word):
     html = getBikePage(bikeWord)
     soup = BeautifulSoup(html, "lxml")
@@ -176,7 +178,6 @@ def getSentence(bikeWord, keyWord):
             content += node.text.strip().replace("\n", "") + "\n"
         node = node.find_next_sibling()
     return content
-
 
 # parseLemmaSummary(getBikePage("有理数"))
 # parseMainContent(getBikePage("有理数乘法法则"))

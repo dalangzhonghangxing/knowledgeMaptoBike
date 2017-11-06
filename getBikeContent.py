@@ -20,7 +20,8 @@ def getContentOfBikeWord(bikeWord):
     content += "mainContent" + "\n"
     mainContent = bike.parseMainContent(html, bikeWord)
     content += mainContent[0] + "\n"
-    if mainContent[1].find("书籍") != -1 or mainContent[1].find("出版物") != -1 or mainContent[1].find("游戏") != -1:
+    # or mainContent[1].find("出版物") != -1
+    if mainContent[1].find("书籍") != -1 or mainContent[1].find("游戏") != -1:
         return ""
     else:
         return content
@@ -320,9 +321,8 @@ def clearEmptyFile(path):
             print(filename)
             os.remove(os.path.join('%s%s' % (path, filename)))
 
-
 # getUnmatchedContent()
-print(getUnmatchedKnowledgeContent("运用有理数的运算解决简单问题"))
+# print(getUnmatchedKnowledgeContent("运用有理数的运算解决简单问题"))
 # print(getContentOfBikeWord("样本"))
 # print(divideKnowledge("总体、个体、样本、样本容量"))
 # "../unMatchedKnowledgeContent/"
